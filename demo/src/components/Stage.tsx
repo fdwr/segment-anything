@@ -14,6 +14,7 @@ const Stage = () => {
   const {
     clicks: [, setClicks],
     image: [image],
+    executionTime: [executionTime]
   } = useContext(AppContext)!;
 
   const getClick = (x: number, y: number): modelInputProps => {
@@ -38,9 +39,12 @@ const Stage = () => {
 
   const flexCenterClasses = "flex items-center justify-center";
   return (
-    <div className={`${flexCenterClasses} w-full h-full`}>
-      <div className={`${flexCenterClasses} relative w-[90%] h-[90%]`}>
+    <div className={`${flexCenterClasses} w-full h-full flex-col`}>
+      <div className={`${flexCenterClasses} relative w-[80%] h-[80%]`}>
         <Tool handleMouseMove={handleMouseMove} />
+      </div>
+      <div className="mt-2">
+        Segment Anything Asynchronous Execution Time (ms): {executionTime}
       </div>
     </div>
   );

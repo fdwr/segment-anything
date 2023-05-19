@@ -27,6 +27,7 @@ const App = () => {
     clicks: [clicks],
     image: [, setImage],
     maskImg: [, setMaskImg],
+    executionTime: [, setExecutionTime]
   } = useContext(AppContext)!;
   const [model, setModel] = useState<InferenceSession | null>(null); // ONNX model
   const [tensor, setTensor] = useState<Tensor | null>(null); // Image embedding tensor
@@ -113,7 +114,12 @@ const App = () => {
         });
         if (feeds === undefined) return;
         // Run the SAM ONNX model with the feeds returned from modelData()
+        const startTime = performance.now();
         const results = await model.run(feeds);
+        const endTime = performance.now();
+        const executionTime = endTime - startTime;
+        setExecutionTime(executionTime);
+        console.log(`model.run() took ${executionTime} ms`);
         const output = results[model.outputNames[0]];
         // The predicted mask returned from the ONNX model is an array which is 
         // rendered as an HTML image using onnxMaskToImage() from maskUtils.tsx.
