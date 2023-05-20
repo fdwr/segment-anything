@@ -6,18 +6,25 @@
 
 // Convert the onnx model mask prediction to ImageData
 function arrayToImageData(input: any, width: number, height: number) {
-  const [r, g, b, a] = [0, 114, 189, 255]; // the masks's blue color
-  const arr = new Uint8ClampedArray(4 * width * height).fill(0);
-  for (let i = 0; i < input.length; i++) {
+  // Speed up mask conversion by writing uint32's instead of 4 uint8's.
+  // This only works on logical endian machines, but realistically,
+  // all the machines of interest currently are.
+  // const [r, g, b, a] = [0, 114, 189, 255]; // the masks's blue color
+  const maskValue = (0 << 0) | (114 << 8) | (189 << 16) | (255 << 24);
 
+  const arr = new Uint8ClampedArray(4 * width * height); // No need to fill - already zeroed.
+  const arr32 = new Uint32Array(arr.buffer);
+
+  for (let i = 0; i < input.length; i++) {
     // Threshold the onnx model mask prediction at 0.0
     // This is equivalent to thresholding the mask using predictor.model.mask_threshold
-    // in python
+    // in Python.
     if (input[i] > 0.0) {
-      arr[4 * i + 0] = r;
-      arr[4 * i + 1] = g;
-      arr[4 * i + 2] = b;
-      arr[4 * i + 3] = a;
+      arr32[i] = maskValue;
+      // arr[4 * i + 0] = r;
+      // arr[4 * i + 1] = g;
+      // arr[4 * i + 2] = b;
+      // arr[4 * i + 3] = a;
     }
   }
   return new ImageData(arr, height, width);
