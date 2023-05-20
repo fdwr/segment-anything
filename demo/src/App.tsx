@@ -4,6 +4,10 @@
 // This source code is licensed under the license found in the
 // LICENSE file in the root directory of this source tree.
 
+// npm install --g yarn
+// yarn && yarn start
+// http://localhost:8080/
+
 import { InferenceSession, Tensor } from "onnxruntime-web";
 import React, { useContext, useEffect, useState } from "react";
 import "./assets/scss/App.scss";
@@ -13,14 +17,19 @@ import { onnxMaskToImage } from "./components/helpers/maskUtils";
 import { modelData } from "./components/helpers/onnxModelAPI";
 import Stage from "./components/Stage";
 import AppContext from "./components/hooks/createContext";
-const ort = require("onnxruntime-web");
+
+// Use the repo's custom dist/ build instead of the ORT npm.
+const ort = require("./dist/ort.min.js")
+//const ort = require("onnxruntime-web");
+
 /* @ts-ignore */
 import npyjs from "npyjs";
 
 // Define image, embedding and model paths
 const IMAGE_PATH = "/assets/data/dogs.jpg";
 const IMAGE_EMBEDDING = "/assets/data/dogs_embedding.npy";
-const MODEL_DIR = "/model/sam_onnx_quantized_example.onnx";
+// const MODEL_DIR = "/model/sam_onnx_example.onnx";
+const MODEL_DIR = "/model/segment-anything-vit-h-static-shapes-origin-im-size-initializer-optimized-float32.onnx";
 
 const App = () => {
   const {
@@ -41,10 +50,29 @@ const App = () => {
   useEffect(() => {
     // Initialize the ONNX model
     const initModel = async () => {
+
+      ort.env.wasm.numThreads = 1; // 4
+      ort.env.wasm.simd = false; // Unfortunately ort-wasm-simd.wasm is too big to fit on GitHub (100MB limit!).
+      ort.env.wasm.proxy = true;
+      ort.env.logLevel = "verbose"; //"error";
+      ort.env.debug = true;
+
+      const options: InferenceSession.SessionOptions = {
+        // provider name: wasm, webnn
+        // deviceType: cpu, gpu
+        // powerPreference: default, high-performance
+
+        executionProviders: [{ name: "wasm"}], // WebAssembly CPU
+        // executionProviders: [{ name: "webnn"}], // WebNN's default device (implementation defined)
+        // executionProviders: [{ name: "webnn", deviceType: "gpu", powerPreference: 'default' }],
+        logSeverityLevel: 0,
+        logVerbosityLevel: 3,
+      };
+
       try {
         if (MODEL_DIR === undefined) return;
         const URL: string = MODEL_DIR;
-        const model = await InferenceSession.create(URL);
+        const model = await InferenceSession.create(URL, options);
         setModel(model);
       } catch (e) {
         console.log(e);
@@ -105,7 +133,7 @@ const App = () => {
       )
         return;
       else {
-        // Preapre the model input in the correct format for SAM. 
+        // Prepare the model input in the correct format for SAM.
         // The modelData function is from onnxModelAPI.tsx.
         const feeds = modelData({
           clicks,

@@ -62,7 +62,15 @@ const modelData = ({ clicks, tensor, modelScale }: modeDataProps) => {
     image_embeddings: imageEmbedding,
     point_coords: pointCoordsTensor,
     point_labels: pointLabelsTensor,
-    orig_im_size: imageSizeTensor,
+    
+    // orig_im_size is commented out because the optimized model is designed for a specific image
+    // size. The WebNN EP is not mature enough yet to handle dynamic shapes based on the *values*
+    // inside tensors, which requires more careful coordination/delegation of node assignments
+    // because you don't want those values uploaded to the GPU only to perform a few tiny
+    // operations on tensors that are only 2-4 elements in size, only to stall waiting to read
+    // them back.
+    // orig_im_size: imageSizeTensor,
+
     mask_input: maskInput,
     has_mask_input: hasMaskInput,
   };
