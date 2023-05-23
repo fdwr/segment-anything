@@ -59,7 +59,7 @@ const modelData = ({ clicks, tensor, modelScale }: modeDataProps) => {
   const hasMaskInput = new Tensor("float32", [0]);
 
   return {
-    image_embeddings: imageEmbedding,
+    image_embeddings: new Tensor(imageEmbedding.type, imageEmbedding.data.slice(0), imageEmbedding.dims),
     point_coords: pointCoordsTensor,
     point_labels: pointLabelsTensor,
     

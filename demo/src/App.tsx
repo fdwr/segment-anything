@@ -8,7 +8,7 @@
 // yarn && yarn start
 // http://localhost:8080/
 
-import { InferenceSession, Tensor } from "onnxruntime-web";
+import { InferenceSession, Tensor, env } from "onnxruntime-web";
 import React, { useContext, useEffect, useState } from "react";
 import "./assets/scss/App.scss";
 import { handleImageScale } from "./components/helpers/scaleHelper";
@@ -17,10 +17,6 @@ import { onnxMaskToImage } from "./components/helpers/maskUtils";
 import { modelData } from "./components/helpers/onnxModelAPI";
 import Stage from "./components/Stage";
 import AppContext from "./components/hooks/createContext";
-
-// Use the repo's custom dist/ build instead of the ORT npm.
-const ort = require("./dist/ort.min.js")
-//const ort = require("onnxruntime-web");
 
 /* @ts-ignore */
 import npyjs from "npyjs";
@@ -40,7 +36,10 @@ const App = () => {
   } = useContext(AppContext)!;
   const [model, setModel] = useState<InferenceSession | null>(null); // ONNX model
   const [tensor, setTensor] = useState<Tensor | null>(null); // Image embedding tensor
-
+  // State to prevent next click injecting in to interfere the ongoing model running.
+  // This only occurs in wasm.proxy = true (Web Worker) as which is asynchronous execution,
+  // useEffect continously accepts new clicks that would cause race condition.
+  const [isRunning, setIsRunning] = useState(false);
   // The ONNX model expects the input to be rescaled to 1024. 
   // The modelScale state variable keeps track of the scale values.
   const [modelScale, setModelScale] = useState<modelScaleProps | null>(null);
@@ -51,22 +50,22 @@ const App = () => {
     // Initialize the ONNX model
     const initModel = async () => {
 
-      ort.env.wasm.numThreads = 1; // 4
-      ort.env.wasm.simd = false; // Unfortunately ort-wasm-simd.wasm is too big to fit on GitHub (100MB limit!).
-      ort.env.wasm.proxy = true;
-      ort.env.logLevel = "verbose"; //"error";
-      ort.env.debug = true;
+      env.wasm.numThreads = 1; // 4
+      env.wasm.simd = true;
+      env.wasm.proxy = true;
+      // env.logLevel = "verbose"; //"error";
+      // env.debug = true;
 
       const options: InferenceSession.SessionOptions = {
         // provider name: wasm, webnn
         // deviceType: cpu, gpu
         // powerPreference: default, high-performance
 
-        executionProviders: [{ name: "wasm"}], // WebAssembly CPU
+        // executionProviders: [{ name: "wasm"}], // WebAssembly CPU
         // executionProviders: [{ name: "webnn"}], // WebNN's default device (implementation defined)
-        // executionProviders: [{ name: "webnn", deviceType: "gpu", powerPreference: 'default' }],
-        logSeverityLevel: 0,
-        logVerbosityLevel: 3,
+        executionProviders: [{ name: "webnn", deviceType: "gpu", powerPreference: 'default' }],
+        // logSeverityLevel: 0,
+        // logVerbosityLevel: 3,
       };
 
       try {
@@ -114,25 +113,29 @@ const App = () => {
   const loadNpyTensor = async (tensorFile: string, dType: string) => {
     let npLoader = new npyjs();
     const npArray = await npLoader.load(tensorFile);
-    const tensor = new ort.Tensor(dType, npArray.data, npArray.shape);
+    const tensor = new Tensor(dType as Tensor.Type, npArray.data, npArray.shape);
     return tensor;
   };
 
   // Run the ONNX model every time clicks has changed
   useEffect(() => {
-    runONNX();
+    if (!isRunning) {
+      runONNX();
+    }
   }, [clicks]);
 
   const runONNX = async () => {
     try {
+      setIsRunning(true);
       if (
         model === null ||
         clicks === null ||
         tensor === null ||
         modelScale === null
-      )
+      ) {
+        setIsRunning(false);
         return;
-      else {
+      } else {
         // Prepare the model input in the correct format for SAM.
         // The modelData function is from onnxModelAPI.tsx.
         const feeds = modelData({
@@ -145,13 +148,14 @@ const App = () => {
         const startTime = performance.now();
         const results = await model.run(feeds);
         const endTime = performance.now();
-        const executionTime = endTime - startTime;
-        setExecutionTime(executionTime);
-        console.log(`model.run() took ${executionTime} ms`);
+        const eT = endTime - startTime;
+        setExecutionTime(eT);
+        console.log(`model.run() took ${eT} ms`);
         const output = results[model.outputNames[0]];
         // The predicted mask returned from the ONNX model is an array which is 
         // rendered as an HTML image using onnxMaskToImage() from maskUtils.tsx.
         setMaskImg(onnxMaskToImage(output.data, output.dims[2], output.dims[3]));
+        setIsRunning(false);
       }
     } catch (e) {
       console.log(e);
