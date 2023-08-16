@@ -44,7 +44,7 @@ const Stage = () => {
         <Tool handleMouseMove={handleMouseMove} />
       </div>
       <div className="mt-2">
-        Segment Anything Asynchronous Execution Time (ms): {executionTime}
+        { executionTime ? `Segment Anything Asynchronous Execution Time: ${executionTime?.toFixed(2)}ms` : `` }
       </div>
     </div>
   );
