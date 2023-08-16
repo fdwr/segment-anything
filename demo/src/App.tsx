@@ -148,9 +148,9 @@ const App = () => {
         const startTime = performance.now();
         const results = await model.run(feeds);
         const endTime = performance.now();
-        const eT = endTime - startTime;
-        setExecutionTime(eT);
-        console.log(`model.run() took ${eT} ms`);
+        const executionTime = endTime - startTime;
+        setExecutionTime(executionTime);
+        console.log(`model.run() took ${executionTime} ms`);
         const output = results[model.outputNames[0]];
         // The predicted mask returned from the ONNX model is an array which is 
         // rendered as an HTML image using onnxMaskToImage() from maskUtils.tsx.
